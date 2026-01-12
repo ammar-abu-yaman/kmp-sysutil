@@ -1,7 +1,7 @@
 package com.ammarymn.kmp.sysinfo
 
-expect object SystemInfo {
-    val hardware: Hardware
-        get
+object SystemInfo {
+    val hardware: Hardware = platformHardware
 }
 
+internal expect val platformHardware: Hardware
