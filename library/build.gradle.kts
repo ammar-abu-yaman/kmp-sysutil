@@ -1,40 +1,15 @@
-import com.android.build.api.dsl.androidLibrary
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.vanniktech.mavenPublish)
 }
 
-group = "io.github.kotlin"
-version = "1.0.0"
+group = "com.ammarymn.kmp.sysinfo"
+version = "0.0.1"
 
 kotlin {
     jvm()
-    androidLibrary {
-        namespace = "org.jetbrains.kotlinx.multiplatform.library.template"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
-
-        withJava() // enable java compilation support
-        withHostTestBuilder {}.configure {}
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
-        }
-
-        compilations.configureEach {
-            compilerOptions.configure {
-                jvmTarget.set(
-                    JvmTarget.JVM_11
-                )
-            }
-        }
-    }
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
     linuxX64()
+    mingwX64()
 
     sourceSets {
         commonMain.dependencies {
@@ -55,28 +30,29 @@ mavenPublishing {
     coordinates(group.toString(), "library", version.toString())
 
     pom {
-        name = "My library"
-        description = "A library."
-        inceptionYear = "2024"
-        url = "https://github.com/kotlin/multiplatform-library-template/"
+        name = "KMP SysInfo"
+        description = "A low-level system information library for Kotlin Multiplatform."
+        inceptionYear = "2026"
+        url = "https://ammarymn.com"
         licenses {
             license {
-                name = "XXX"
-                url = "YYY"
-                distribution = "ZZZ"
+                name = "MIT"
+                url = "https://opensource.org/licenses/MIT"
+                distribution = "repo"
             }
         }
         developers {
             developer {
-                id = "XXX"
-                name = "YYY"
-                url = "ZZZ"
+                id = "ammarymn"
+                name = "Ammar Abu Yaman"
+                email = "ammar.abu.yaman@gmail.com"
+                url = "https://ammarymn.com"
             }
         }
         scm {
-            url = "XXX"
-            connection = "YYY"
-            developerConnection = "ZZZ"
+            url = "https://github.com/ammar-abu-yaman/kmp-sysinfo"
+            connection = "scm:git:git://github.com/ammar-abu-yaman/kmp-sysinfo.git"
+            developerConnection = "scm:git:ssh://git@github.com/ammar-abu-yaman/kmp-sysinfo.git"
         }
     }
 }
