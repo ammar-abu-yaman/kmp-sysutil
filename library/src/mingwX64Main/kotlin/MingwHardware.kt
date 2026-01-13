@@ -1,8 +1,8 @@
 @file:OptIn(ExperimentalForeignApi::class)
-package com.ammarymn.kmp.sysinfo
+package com.ammarymn.kmp.sysutil
 
-import com.ammarymn.kmp.sysinfo.model.Cpu
-import com.ammarymn.kmp.sysinfo.model.Memory
+import com.ammarymn.kmp.sysutil.model.Cpu
+import com.ammarymn.kmp.sysutil.model.Memory
 import kotlinx.cinterop.*
 import platform.windows.*
 

@@ -1,5 +1,6 @@
-import com.ammarymn.kmp.sysinfo.SystemInfo
+import com.ammarymn.kmp.sysutil.SystemInfo
 
 fun main() {
-    println(SystemInfo.hardware.memory)
+    println("Hello from mingwX64!")
+    println(SystemInfo.hardware.cpu)
 }

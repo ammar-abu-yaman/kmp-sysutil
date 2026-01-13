@@ -1,3 +1,3 @@
-package com.ammarymn.kmp.sysinfo
+package com.ammarymn.kmp.sysutil
 
 internal actual val platformHardware: Hardware = TODO()

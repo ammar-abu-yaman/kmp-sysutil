@@ -1,4 +1,4 @@
-package com.ammarymn.kmp.sysinfo
+package com.ammarymn.kmp.sysutil
 
 object SystemInfo {
     val hardware: Hardware = platformHardware

@@ -1,4 +1,4 @@
-import com.ammarymn.kmp.sysinfo.*
+import com.ammarymn.kmp.sysutil.*
 import platform.windows.PROCESSOR_ARCHITECTURE_AMD64
 import platform.windows.PROCESSOR_ARCHITECTURE_ARM64
 import platform.windows.PROCESSOR_ARCHITECTURE_INTEL

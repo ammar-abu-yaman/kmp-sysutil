@@ -1,4 +1,4 @@
-package com.ammarymn.kmp.sysinfo.model
+package com.ammarymn.kmp.sysutil.model
 
 data class Memory(
     val total: Long,
