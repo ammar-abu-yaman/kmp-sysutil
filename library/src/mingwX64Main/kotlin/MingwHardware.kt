@@ -2,6 +2,7 @@
 package com.ammarymn.kmp.sysutil
 
 import com.ammarymn.kmp.sysutil.model.Cpu
+import com.ammarymn.kmp.sysutil.model.StorageVolume
 import com.ammarymn.kmp.sysutil.model.Memory
 import kotlinx.cinterop.*
 import platform.windows.*
@@ -136,4 +137,69 @@ internal fun getPhysicalProcessorCount(): Int = memScoped {
     }
 
     physicalCores
+}
+
+internal fun getStorageInfo(): List<StorageVolume> = memScoped {
+    val volumes = mutableListOf<StorageVolume>()
+
+    val bufferSize = GetLogicalDriveStringsW(0u, null).toInt()
+    if(bufferSize == 0)
+        throw Exception("Failed to get logical drive string buffer size")
+
+    val buffer = allocArray<WCHARVar>(bufferSize.toInt())
+    GetLogicalDriveStringsW(bufferSize.toUInt(), buffer)
+    val drives = parseWCharArray(buffer, bufferSize.toUInt())
+    for(drive in drives) {
+        val volumeName = allocArray<WCHARVar>(MAX_PATH+1)
+        val fileSystemName = allocArray<WCHARVar>(MAX_PATH+1)
+
+        if(GetVolumeInformationW(
+                drive,
+                volumeName,
+                MAX_PATH.toUInt(),
+                null,
+                null,
+                null,
+                fileSystemName,
+                MAX_PATH.toUInt()) == 0)
+            throw Exception("Failed to get volume information for $drive")
+        val freeBytesAvailable = alloc<ULARGE_INTEGER>()
+        val totalNumberOfBytes = alloc<ULARGE_INTEGER>()
+        val totalNumberOfFreeBytes = alloc<ULARGE_INTEGER>()
+
+        // Use the 'W' version explicitly
+        if (GetDiskFreeSpaceExW(
+                drive,
+                freeBytesAvailable.ptr,
+                totalNumberOfBytes.ptr,
+                totalNumberOfFreeBytes.ptr
+            ) == 0)
+            throw Exception("Failed to get disk free space for $drive")
+
+        val volume = StorageVolume(
+            mountPoint = drive,
+            label = volumeName.toKStringFromUtf16(),
+            fileSystem = fileSystemName.toKStringFromUtf16(),
+            totalBytes = totalNumberOfBytes.QuadPart.toLong(),
+            availableBytes = freeBytesAvailable.QuadPart.toLong(),
+            totalFreeBytes = totalNumberOfFreeBytes.QuadPart.toLong()
+        )
+        volumes.add(volume)
+    }
+
+    volumes
+}
+
+private fun parseWCharArray(buffer: CPointer<UShortVar>, len: UInt): List<String> {
+    var current = buffer
+    val drives = mutableListOf<String>()
+    while (true) {
+        val str = current.toKStringFromUtf16()
+        if (str.isEmpty())
+            break
+
+        drives.add(str)
+        current = current.plus(str.length + 1)!!
+    }
+    return drives
 }

@@ -6,4 +6,7 @@ internal actual val platformHardware = object: Hardware {
 
     override val cpu
         get() = getCpuInfo()
+
+    override val volumes
+        get() = getStorageInfo()
 }
