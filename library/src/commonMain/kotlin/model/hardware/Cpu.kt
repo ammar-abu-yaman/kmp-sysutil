@@ -1,4 +1,4 @@
-package com.ammarymn.kmp.sysutil.model
+package com.ammarymn.kmp.sysutil.model.hardware
 
 data class Cpu(
     val model: String,        // e.g., "Intel(R) Core(TM) i7-12700H"

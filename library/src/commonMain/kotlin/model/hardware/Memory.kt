@@ -1,4 +1,4 @@
-package com.ammarymn.kmp.sysutil.model
+package com.ammarymn.kmp.sysutil.model.hardware
 
 import com.ammarymn.kmp.sysutil.unit.ByteSize
 

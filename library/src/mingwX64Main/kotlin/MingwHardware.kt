@@ -1,12 +1,14 @@
 @file:OptIn(ExperimentalForeignApi::class)
 
-import com.ammarymn.kmp.sysutil.model.Cpu
-import com.ammarymn.kmp.sysutil.model.StorageVolume
-import com.ammarymn.kmp.sysutil.model.Memory
+import com.ammarymn.kmp.sysutil.model.hardware.Cpu
+import com.ammarymn.kmp.sysutil.model.hardware.StorageVolume
+import com.ammarymn.kmp.sysutil.model.hardware.Memory
+import com.ammarymn.kmp.sysutil.model.hardware.PowerStatus
 import com.ammarymn.kmp.sysutil.unit.ByteSize.Companion.bytes
 import kotlinx.cinterop.*
 import kotlinx.cinterop.get
 import platform.windows.*
+import kotlin.time.Duration.Companion.seconds
 
 internal const val PROCESSOR_REGISTRY_KEY = "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"
 
@@ -188,6 +190,52 @@ internal fun getStorageInfo(): List<StorageVolume> = memScoped {
     }
 
     volumes
+}
+
+internal fun getPowerInfo(): PowerStatus = memScoped {
+    val status = alloc<SYSTEM_POWER_STATUS>()
+
+    // 1. Call the API
+    if (GetSystemPowerStatus(status.ptr) == 0) {
+        // If it fails (rare), return a default "Desktop" state
+        return PowerStatus(
+            hasBattery = false,
+            isPluggedIn = true,
+            isCharging = false,
+            batteryLevel = 100,
+            timeRemaining = null
+        )
+    }
+
+    // 2. Parse "ACLineStatus" (1 Byte)
+    // 0 = Offline (Battery), 1 = Online (Plugged In), 255 = Unknown
+    val isPluggedIn = status.ACLineStatus.toInt() == 1
+
+    // 3. Parse "BatteryFlag" (1 Byte)
+    // Bitfield:
+    // 1=High, 2=Low, 4=Critical, 8=Charging, 128=No System Battery, 255=Unknown
+    val flag = status.BatteryFlag.toInt()
+    val hasBattery = (flag and 128) == 0 && (flag != 255)
+    val isCharging = (flag and 8) != 0
+
+    // 4. Parse "BatteryLifePercent" (1 Byte)
+    // 0-100, or 255 if unknown
+    val rawLevel = status.BatteryLifePercent.toInt()
+    val batteryLevel = if (rawLevel in 0..100) rawLevel else 100
+
+    // 5. Parse "BatteryLifeTime" (Int/Long)
+    // Number of seconds remaining, or -1 if unknown (e.g., charging or calculating)
+    val secondsRemaining = status.BatteryLifeTime.toInt()
+    val timeRemaining = if (secondsRemaining != -1) secondsRemaining.seconds else null
+
+
+    return PowerStatus(
+        hasBattery = hasBattery,
+        isPluggedIn = isPluggedIn,
+        isCharging = isCharging,
+        batteryLevel = batteryLevel,
+        timeRemaining = timeRemaining
+    )
 }
 
 private fun parseWCharArray(buffer: CPointer<UShortVar>): List<String> {
