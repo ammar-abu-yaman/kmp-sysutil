@@ -1,4 +1,4 @@
-import com.ammarymn.kmp.sysutil.*
+import com.ammarymn.kmp.sysutil.unit.ByteSize.Companion.bytes
 import platform.windows.PROCESSOR_ARCHITECTURE_AMD64
 import platform.windows.PROCESSOR_ARCHITECTURE_ARM64
 import platform.windows.PROCESSOR_ARCHITECTURE_INTEL
@@ -19,8 +19,8 @@ class MingwHardwareTest {
         }
 
         // Verify RAM (Physical Memory) Logic
-        assertTrue(snapshot.total > 0, "Total RAM must be greater than 0")
-        assertTrue(snapshot.available >= 0, "Available RAM cannot be negative")
+        assertTrue(snapshot.total > 0.bytes, "Total RAM must be greater than 0")
+        assertTrue(snapshot.available >= 0.bytes, "Available RAM cannot be negative")
         assertTrue(snapshot.available <= snapshot.total, "Available RAM cannot be greater than Total RAM")
 
         val calculatedUsed = snapshot.total - snapshot.available
@@ -28,8 +28,8 @@ class MingwHardwareTest {
 
         // Verify Swap (Page File) Logic
         // Note: It is technically possible for swap to be 0 if the user disabled the page file.
-        assertTrue(snapshot.totalSwap >= 0, "Total Swap cannot be negative")
-        assertTrue(snapshot.availableSwap >= 0, "Available Swap cannot be negative")
+        assertTrue(snapshot.totalSwap >= 0.bytes, "Total Swap cannot be negative")
+        assertTrue(snapshot.availableSwap >= 0.bytes, "Available Swap cannot be negative")
 
         // Ensure our subtraction logic (Commit Limit - RAM) didn't break
         assertTrue(snapshot.availableSwap <= snapshot.totalSwap, "Available Swap cannot be greater than Total Swap")

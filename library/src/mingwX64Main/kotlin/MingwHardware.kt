@@ -1,10 +1,11 @@
 @file:OptIn(ExperimentalForeignApi::class)
-package com.ammarymn.kmp.sysutil
 
 import com.ammarymn.kmp.sysutil.model.Cpu
 import com.ammarymn.kmp.sysutil.model.StorageVolume
 import com.ammarymn.kmp.sysutil.model.Memory
+import com.ammarymn.kmp.sysutil.unit.ByteSize.Companion.bytes
 import kotlinx.cinterop.*
+import kotlinx.cinterop.get
 import platform.windows.*
 
 internal const val PROCESSOR_REGISTRY_KEY = "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"
@@ -26,10 +27,10 @@ internal fun getMemorySnapshot(): Memory = memScoped {
     val availableCommit = memInfo.ullAvailPageFile.toLong()
 
     Memory(
-        total = totalRam,
-        available = availableRam,
-        totalSwap = totalCommit - totalRam,
-        availableSwap = availableCommit - availableRam,
+        total = totalRam.bytes,
+        available = availableRam.bytes,
+        totalSwap = (totalCommit - totalRam).bytes,
+        availableSwap = (availableCommit - availableRam).bytes,
     )
 }
 
@@ -148,7 +149,7 @@ internal fun getStorageInfo(): List<StorageVolume> = memScoped {
 
     val buffer = allocArray<WCHARVar>(bufferSize.toInt())
     GetLogicalDriveStringsW(bufferSize.toUInt(), buffer)
-    val drives = parseWCharArray(buffer, bufferSize.toUInt())
+    val drives = parseWCharArray(buffer)
     for(drive in drives) {
         val volumeName = allocArray<WCHARVar>(MAX_PATH+1)
         val fileSystemName = allocArray<WCHARVar>(MAX_PATH+1)
@@ -180,9 +181,8 @@ internal fun getStorageInfo(): List<StorageVolume> = memScoped {
             mountPoint = drive,
             label = volumeName.toKStringFromUtf16(),
             fileSystem = fileSystemName.toKStringFromUtf16(),
-            totalBytes = totalNumberOfBytes.QuadPart.toLong(),
-            availableBytes = freeBytesAvailable.QuadPart.toLong(),
-            totalFreeBytes = totalNumberOfFreeBytes.QuadPart.toLong()
+            totalSize = totalNumberOfBytes.QuadPart.toLong().bytes,
+            availableSize = freeBytesAvailable.QuadPart.toLong().bytes
         )
         volumes.add(volume)
     }
@@ -190,7 +190,7 @@ internal fun getStorageInfo(): List<StorageVolume> = memScoped {
     volumes
 }
 
-private fun parseWCharArray(buffer: CPointer<UShortVar>, len: UInt): List<String> {
+private fun parseWCharArray(buffer: CPointer<UShortVar>): List<String> {
     var current = buffer
     val drives = mutableListOf<String>()
     while (true) {
