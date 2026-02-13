@@ -1,3 +1,5 @@
+package com.ammarymn.kmp.sysutil
+
 import com.ammarymn.kmp.sysutil.unit.ByteSize.Companion.bytes
 import platform.windows.PROCESSOR_ARCHITECTURE_AMD64
 import platform.windows.PROCESSOR_ARCHITECTURE_ARM64

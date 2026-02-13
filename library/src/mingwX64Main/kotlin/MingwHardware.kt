@@ -1,16 +1,25 @@
 @file:OptIn(ExperimentalForeignApi::class)
+package com.ammarymn.kmp.sysutil
 
 import com.ammarymn.kmp.sysutil.model.hardware.Cpu
 import com.ammarymn.kmp.sysutil.model.hardware.StorageVolume
 import com.ammarymn.kmp.sysutil.model.hardware.Memory
 import com.ammarymn.kmp.sysutil.model.hardware.PowerStatus
 import com.ammarymn.kmp.sysutil.unit.ByteSize.Companion.bytes
+import com.ammarymn.kmp.sysutil.util.readWinRegistryString
 import kotlinx.cinterop.*
 import kotlinx.cinterop.get
 import platform.windows.*
 import kotlin.time.Duration.Companion.seconds
 
 internal const val PROCESSOR_REGISTRY_KEY = "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"
+
+object MingwHardware: Hardware {
+    override val memory get() = getMemorySnapshot()
+    override val cpu get() = getCpuInfo()
+    override val volumes get() = getStorageInfo()
+    override val power get() = getPowerInfo()
+}
 
 internal fun getMemorySnapshot(): Memory = memScoped {
     val memInfo = alloc<MEMORYSTATUSEX>()
@@ -44,7 +53,7 @@ internal fun getCpuInfo(): Cpu = memScoped {
     val cores = sysInfo.dwNumberOfProcessors.toInt()
     val physicalCores = getPhysicalProcessorCount()
     val architecture = getWinArchitectureString(sysInfo.wProcessorArchitecture.toInt())
-    val model = getWinRegistryString(PROCESSOR_REGISTRY_KEY, "ProcessorNameString")
+    val model = readWinRegistryString(PROCESSOR_REGISTRY_KEY, "ProcessorNameString")
 
     Cpu(
         model,
@@ -61,55 +70,6 @@ internal fun getWinArchitectureString(architecture: Int) = when(architecture) {
     PROCESSOR_ARCHITECTURE_ARM   -> "ARM"
     PROCESSOR_ARCHITECTURE_IA64  -> "IA64" // Itanium
     else -> "Unknown ($architecture)"
-}
-
-internal fun getWinRegistryString(key: String, valueName: String): String = memScoped {
-    val keyHandle = alloc<HKEYVar>()
-
-    // Use ExW for Unicode support.
-    if (RegOpenKeyExW(
-            HKEY_LOCAL_MACHINE,
-            key,
-            0u,
-            KEY_READ.toUInt(),
-            keyHandle.ptr
-        ) != ERROR_SUCCESS)
-        throw Exception("Unknown (Open Failed)")
-
-
-    try {
-        val dataSize = alloc<DWORDVar>()
-
-        if (RegQueryValueExW(
-                keyHandle.value,
-                valueName,
-                null,
-                null,
-                null,
-                dataSize.ptr) != ERROR_SUCCESS) {
-            throw Exception("Unknown (Query Size Failed)")
-        }
-
-        val sizeInBytes = dataSize.value.toInt()
-        val buffer = allocArray<UByteVar>(sizeInBytes)
-
-        if (RegQueryValueExW(keyHandle.value,
-                valueName,
-                null,
-                null,
-                buffer,
-                dataSize.ptr) == ERROR_SUCCESS) {
-            // CRITICAL STEP:
-            // Reinterpret the byte pointer as a UShort (UTF-16 char) pointer,
-            // then convert to Kotlin String.
-            return buffer.reinterpret<UShortVar>().toKStringFromUtf16()
-        }
-
-        throw Exception("Unknown (Read Failed)")
-
-    } finally {
-        RegCloseKey(keyHandle.value)
-    }
 }
 
 internal fun getPhysicalProcessorCount(): Int = memScoped {

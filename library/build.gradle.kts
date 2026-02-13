@@ -7,8 +7,6 @@ group = "com.ammarymn.kmp.sysutil"
 version = "0.0.1"
 
 kotlin {
-    jvm()
-    linuxX64()
     mingwX64 {
         binaries.executable()
     }
