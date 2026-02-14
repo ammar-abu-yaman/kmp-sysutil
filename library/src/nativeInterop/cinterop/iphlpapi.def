@@ -1,0 +1,5 @@
+headers = winsock2.h iphlpapi.h netioapi.h
+compilerOpts = -D_WIN32_WINNT=0x0600
+linkerOpts = -liphlpapi -lws2_32
+package = platform.windows.networking
+headerFilter = *

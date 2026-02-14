@@ -3,6 +3,7 @@ package com.ammarymn.kmp.sysutil
 import com.ammarymn.kmp.sysutil.model.hardware.Cpu
 import com.ammarymn.kmp.sysutil.model.hardware.StorageVolume
 import com.ammarymn.kmp.sysutil.model.hardware.Memory
+import com.ammarymn.kmp.sysutil.model.hardware.NetworkInterface
 import com.ammarymn.kmp.sysutil.model.hardware.PowerStatus
 
 interface Hardware {
@@ -10,4 +11,5 @@ interface Hardware {
     val cpu: Cpu
     val volumes: List<StorageVolume>
     val power: PowerStatus
+    val networkInterface: List<NetworkInterface>
 }

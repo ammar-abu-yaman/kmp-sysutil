@@ -8,7 +8,11 @@ version = "0.0.1"
 
 kotlin {
     mingwX64 {
-        binaries.executable()
+        compilations.getByName("main") {
+            cinterops {
+                create("iphlpapi")
+            }
+        }
     }
 
     sourceSets {

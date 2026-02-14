@@ -4,12 +4,15 @@ package com.ammarymn.kmp.sysutil
 import com.ammarymn.kmp.sysutil.model.hardware.Cpu
 import com.ammarymn.kmp.sysutil.model.hardware.StorageVolume
 import com.ammarymn.kmp.sysutil.model.hardware.Memory
+import com.ammarymn.kmp.sysutil.model.hardware.NetworkInterface
 import com.ammarymn.kmp.sysutil.model.hardware.PowerStatus
 import com.ammarymn.kmp.sysutil.unit.ByteSize.Companion.bytes
 import com.ammarymn.kmp.sysutil.util.readWinRegistryString
 import kotlinx.cinterop.*
-import kotlinx.cinterop.get
+import platform.posix.AF_INET6
+import platform.posix.SOCKADDR_IN
 import platform.windows.*
+import platform.windows.networking.*
 import kotlin.time.Duration.Companion.seconds
 
 internal const val PROCESSOR_REGISTRY_KEY = "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"
@@ -19,6 +22,7 @@ object MingwHardware: Hardware {
     override val cpu get() = getCpuInfo()
     override val volumes get() = getStorageInfo()
     override val power get() = getPowerInfo()
+    override val networkInterface get() = getNetworkInterfaces()
 }
 
 internal fun getMemorySnapshot(): Memory = memScoped {
@@ -210,4 +214,103 @@ private fun parseWCharArray(buffer: CPointer<UShortVar>): List<String> {
         current = current.plus(str.length + 1)!!
     }
     return drives
+}
+
+private fun getNetworkInterfaces(): List<NetworkInterface> = memScoped {
+
+    val bufferLen = alloc<UIntVar>()
+    bufferLen.value = 15000u // 15KB is a recommended initial size.
+    var pAddresses = allocArray<ByteVar>(bufferLen.value.toInt())
+    val family = AF_UNSPEC.toUInt()
+    val flags = (GAA_FLAG_INCLUDE_PREFIX or GAA_FLAG_INCLUDE_GATEWAYS).toUInt()
+    var returnVal = 0u
+    // Repeating up to 3 times before failing on buffer size
+    repeat(3) {
+        val adaptersPtr = pAddresses.reinterpret<IP_ADAPTER_ADDRESSES_LH>()
+
+        returnVal = GetAdaptersAddresses(
+            family,
+            flags,
+            null,
+            adaptersPtr,
+            bufferLen.ptr
+        )
+        when (returnVal) {
+            ERROR_BUFFER_OVERFLOW.toUInt() -> pAddresses = allocArray(bufferLen.value.toInt())
+            else -> return@repeat
+        }
+    }
+
+    if (returnVal != NO_ERROR.toUInt())
+        throw Exception("Failed to get network interfaces: $returnVal")
+
+    val interfaces = mutableListOf<NetworkInterface>()
+    var adapterPtr: CPointer<IP_ADAPTER_ADDRESSES_LH>? = pAddresses.reinterpret()
+    while(adapterPtr != null) {
+        val adapter = adapterPtr.pointed
+        val friendlyName = adapter.FriendlyName?.toKStringFromUtf16() ?: ""
+        val name = adapter.AdapterName?.toKString() ?: ""
+        val macAddress = (0..<adapter.PhysicalAddressLength.toInt()).asSequence()
+            .map { i -> adapter.PhysicalAddress[i].toHexString() }
+            .joinToString(":")
+
+        val description = adapter.Description?.toKStringFromUtf16() ?: ""
+        val ipAddresses = getIpAddresses(adapter)
+
+        interfaces.add(NetworkInterface(
+            friendlyName,
+            name,
+            description,
+            macAddress,
+            ipAddresses,
+        ))
+
+        adapterPtr = adapter.Next
+    }
+
+    return interfaces
+}
+
+fun getIpAddresses(adapter: IP_ADAPTER_ADDRESSES_LH): List<String> {
+    val ipAddresses = mutableListOf<String>()
+
+    // Start iterating the linked list of unicast addresses
+    var currentUnicast = adapter.FirstUnicastAddress
+
+    while (currentUnicast != null) {
+        val unicast = currentUnicast.pointed
+        val sockAddrPtr = unicast.Address.lpSockaddr
+
+        if (sockAddrPtr != null) {
+            // Check the family (IPv4 vs IPv6)
+            val family = sockAddrPtr.pointed.sa_family.toInt()
+
+            val ipAddress = when (family) {
+                AF_INET -> { // --- IPv4 (32-bit) ---
+                    val ipv4 = sockAddrPtr.reinterpret<SOCKADDR_IN>()
+                    val bytes = ipv4.pointed.sin_addr.ptr.reinterpret<UByteVar>()
+
+                    val ipStr = "${bytes[0]}.${bytes[1]}.${bytes[2]}.${bytes[3]}"
+                    ipStr
+                }
+                AF_INET6 -> { // --- IPv6 (128-bit) ---
+                    val ipv6 = sockAddrPtr.reinterpret<SOCKADDR_IN6>()
+                    val bytes = ipv6.pointed.sin6_addr.ptr.reinterpret<UByteVar>()
+
+                    // IP V6 address formating
+                    (0..<16).step(2).asSequence().windowed(2)
+                        .map { (b1, b2) -> (bytes[b1].toInt() shl 8) or bytes[b2].toInt() }
+                        .map { it.toString(radix=16) }
+                        .joinToString(separator = ":")
+                }
+                else -> ""
+            }
+            ipAddresses.add(ipAddress)
+        }
+
+        // Move to the next node in the linked list
+        currentUnicast = unicast.Next
+    }
+
+    return ipAddresses
 }
